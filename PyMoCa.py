@@ -244,7 +244,7 @@ class parameter(simulation_element):
         #print historical data
         if (self.hist_data is not None)& ('h' in mode):
            #histogram
-           ax.hist(self.hist_data, alpha=0.9, density=True, color = 'blue', label = 'observed')
+           ax.hist(self.hist_data, alpha=0.9, density=True, color = 'deepskyblue', label = 'observed')
            
         #print simulation data
         if (self.s is not None) & ('s' in mode):
@@ -255,7 +255,7 @@ class parameter(simulation_element):
         
         if (self.dist is not None) &('d' in mode):
             #80%CI fit
-            ax.hlines(ylim[1]*1.1, xmin = self.dist.ppf(0.1), xmax = self.dist.ppf(0.9), label = 'min, P90, mean, P10, max - sim.', color = 'lightcoral', linewidth = 3)
+            ax.hlines(ylim[1]*1.1, xmin = self.dist.ppf(0.1), xmax = self.dist.ppf(0.9), color = 'lightcoral', linewidth = 3)
             ax.hlines(ylim[1]*1.1, xmin = self.dist.ppf(0.0001), xmax = self.dist.ppf(0.9999), color = 'lightcoral', linewidth = 3, linestyle = '--')
             p = [self.dist.ppf(0.0001),
                  self.dist.ppf(0.1),
@@ -266,7 +266,7 @@ class parameter(simulation_element):
         
         if (self.hist_data is not None)& ('h' in mode):
             #80% CI historical data
-           ax.hlines(ylim[1]*1.2, xmin = np.quantile(self.hist_data, 0.1), xmax = np.quantile(self.hist_data, 0.9), label = 'min, P90, mean, P10, max - obs.', color = 'blue',  linewidth = 3)
+           ax.hlines(ylim[1]*1.2, xmin = np.quantile(self.hist_data, 0.1), xmax = np.quantile(self.hist_data, 0.9) , color = 'blue',  linewidth = 3)
            ax.hlines(ylim[1]*1.2, xmin = self.hist_data.min(), xmax = self.hist_data.max(), color = 'blue',  linewidth = 3, linestyle = '--')
 
            p = [self.hist_data.min(),
@@ -278,7 +278,7 @@ class parameter(simulation_element):
             
         ax.set_title(f"Parameter: {self.name} [{self.unit}]")
         ax.set_xlim(xmin, xmax)
-        #ax.legend(loc = (1.04,0.5), frameon = True)
+        ax.legend(loc = 1)
         ax.grid(True)
         
         if self.savefig:
@@ -562,6 +562,10 @@ class Simulation:
     def summary(self):
         return self.__summary()
     
+    @property
+    def dump(self):
+        return self.assemble_dump()
+    
     def add(self, simulation_element):
         '''
         
@@ -767,17 +771,22 @@ class Simulation:
                          
         return s
     
-    def dump(self):
+    def assemble_dump(self):
         '''
         returns: pandas DataFrame containing all parameters and all results for each realisation
         '''
-        colsp = [parami.name for parami in self.__parameters]
-        colsr= [resi.name for resi in self.__results]
+        colsp = [f'{parami.name} [{parami.unit}]' for parami in self.__parameters] +  \
+            [f'{parami.name} [{parami.unit}]' for parami in self.__results]
+            
         
-        dump = pd.DataFrame(columns = np.hstack([colsp, colsr]))
         
-        for column in dump.columns:
+        dump = pd.DataFrame(columns = np.hstack([self.parameter_names, self.result_names]))
+        
+        for column in self.parameter_names + self.result_names:
             dump[column] = self[column].s
+            
+        dump.columns = colsp
+        
         return dump
     
     def convergence(self, plot = True):
