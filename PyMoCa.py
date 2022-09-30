@@ -5,12 +5,6 @@ Created on Sun Jul 25 18:49:00 2021
 
 @author: mischasch
 
-TODO:
-    - units (check)
-    - properties for simulation (e.g. P-Fälle, savefigs etc.) (check)
-    - parameter and result inherit from "element" (nicht sinnvoll?)
-    - P Fälle dynamisch
-    - convergence: text im plot
 """
 
 #imports
@@ -20,73 +14,36 @@ from pathlib import Path
 from matplotlib import style
 
 #plot presets
-#plt.rcParams.update({'font.size': 14})ß
+#plt.rcParams.update({'font.size': 14})
 plt.rcParams.update({'figure.dpi': 100})
-plt.rcParams.update({'legend.loc': 'best'})
+#plt.rcParams.update({'legend.loc': 'best'})
 style.use('seaborn')
 
 #parent class for simulation elements
 class simulation_element():
     def __init__(self, name, s, unit = '-'):
+        '''        
+        constructor. see documentation in subclasses
         '''
         
-
-        Parameters
-        ----------
-        name : TYPE
-            DESCRIPTION.
-        s : TYPE
-            DESCRIPTION.
-        unit : TYPE, optional
-            DESCRIPTION. The default is '-'.
-
-        Returns
-        -------
-        None.
-
-        '''
         self.name = name
         self.unit = unit
-        self.s = s
-        self.figsize = (2, 1.618*2) #standard figszie in jupyter notebook
+        self._s = s
+        self.figsize = (6.4*0.8, 4.8*0.8)#standard figszie in jupyter notebook
         self.savefig = False
         self.savedir = None
         
 # =============================================================================
 #  General methods       
 # =============================================================================
-    # def evaluate_convergence(self):
-    #     """
-    #     evaluates the convergence of a simulation element by computing and setting the attributes self.runningAverage and 
-    #     self.runningStandardError. 
-
-    #     Returns
-    #     -------
-    #     None.
-
-    #     """
-    #     #check ihf simulation data is available
-    #     if self.s is None:
-    #         raise Exception('No simulated data available to analyse')
-        
-    #     self.running_average = self.compute_running_average(self.s)
-    #     self.running_se = self.compute_running_se(self.s)
-        
-    #     print('Element: {} ... Standard Error of the mean after the last iteration is {:.2f} or {:.2f} %%'
-    #           .format(self.name, self.running_se[-1],
-    #                   self.running_se[-1] / self.running_average[-1]*100))
         
     def compute_running_average(self):
         '''
-        
+        computes the running average of an elements .s attribute.
        
-        Parameters
-        ----------
-        array : np.array
-             DESCRIPTION: array of numbers on which to compute the running average
         Returns
         -------
-        ra : TYPE
+        ra : np.array
              running average
        
         '''
@@ -104,14 +61,8 @@ class simulation_element():
            
          
         """
-        computes a running standard error (std / sqrt(n))
-       
-            Parameters
-        ----------
-        array : np.array
-             list in correct order for which to calculate the running quantile
-        quantile : float
-             quantile to compute
+        computes the running standard error (std / sqrt(n)) of an elements .s attribute
+
        
         Returns
         -------
@@ -142,6 +93,21 @@ class simulation_element():
     def running_se(self):
         return self.compute_running_se()
     
+    #s
+    @property
+    def s(self):
+        return self._s
+    
+    @s.setter
+    def s(self, newvalue):
+        #check type
+        if newvalue is not None and not isinstance(newvalue, np.ndarray):
+            raise ValueError('.s attribute must be a numpy array')
+            
+        self._s = newvalue
+            
+        
+    
 # =============================================================================
 # Methods that will be overridden in subclasses        
 # =============================================================================
@@ -156,31 +122,20 @@ class simulation_element():
 class parameter(simulation_element):
     def __init__(self, name, s = None, unit = '-', dist = None, hist_data = None):
         '''
-        
+        constructor for new parameter object.
 
         Parameters
         ----------
-        name : TYPE
-            DESCRIPTION.
-         : TYPE
-            DESCRIPTION.
-        s : TYPE, optional
-            DESCRIPTION. The default is None.
-        unit : TYPE, optional
-            DESCRIPTION. The default is '-'.
-        dist : TYPE, optional
-            DESCRIPTION. The default is None.
-        hist_data : TYPE, optional
-            DESCRIPTION. The default is None.
-
-        Raises
-        ------
-        ValueError
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
+        name : string
+            parameter name.
+        s : np.array of length nmc, optional
+            numerical simulation values The default is None.
+        unit : string, optional
+            the parameters physical unit. The default is '-'.
+        dist : scipy.stats, optional
+            the statistical distribution of the parameter values. The default is None.
+        hist_data : np.array of any length, optional
+            historical values of the parameter. The default is None.
 
         '''
         #initialise parent class
@@ -188,27 +143,45 @@ class parameter(simulation_element):
         
         
         #attributes of derived class
-        self.dist = dist
-        self.hist_data = hist_data
+        self._dist = dist
+        self._hist_data = hist_data
+        
+    #dist
+    @property
+    def dist(self):
+        return self._dist
+    
+    @dist.setter
+    def dist(self, newvalue):       
+        if newvalue is not None and not isinstance(newvalue, stats._distn_infrastructure.rv_frozen):
+            raise ValueError('.dist attribute must be a scipy.stats element')
+            
+    @property
+    def hist_data(self):
+        return self._hist_data
+    
+    @hist_data.setter
+    def hist_data(self, newvalue):
+        #check type
+        if newvalue is not None and not isinstance(newvalue, np.ndarray):
+            raise ValueError('.hist_data attribute must be a numpy array')
+            
+        self._s = newvalue
         
         
     def plot(self, mode = 'dhs', showfig = True):
         """
-        creates and shows a plot of the parameter. In any case, the theoretical PDF of the distribution is displayed. 
-        If available, historical data as well as randomly drawn data for the MC simulation is displayed.
+        creates and shows a plot of the parameter. Use the mode parameter to choose what to include in the plot.
+
 
         Parameters
         ----------
         mode : string
-            Plots the parameter. Default: 'd'. The submitted string can be a combination of the followiung characters:
+            Plots the parameter. Default: 'dhs'. The submitted string can be a combination of the followiung characters:
             'd': distribution
             'h': historic data
             's': simulation data
         showfig: If True, plot is showed
-            
-        Returns
-        -------
-        None.
 
         """
         
@@ -278,7 +251,7 @@ class parameter(simulation_element):
             
         ax.set_title(f"Parameter: {self.name} [{self.unit}]")
         ax.set_xlim(xmin, xmax)
-        ax.legend(loc = 1)
+        ax.legend(loc = 7)
         ax.grid(True)
         
         if self.savefig:
@@ -289,12 +262,12 @@ class parameter(simulation_element):
         
         plt.show()
         
-        return #fig
+        return
     
     def compile_summary(self):
         """
-        compiles a summary table conatining a statistical description of the input parameter.
-        If available, balso the historical data is described.
+        compiles a summary table containing a statistical description of the input parameter.
+        All data available (simulation, historical, distribution) are included.
 
         Returns
         -------
@@ -358,7 +331,7 @@ class parameter(simulation_element):
 
         Returns
         -------
-        0 if succesful, if nmc <1 1, the function returns -1.
+        None
 
         """
         if (self.s is None) and (self.dist is None):
@@ -378,7 +351,7 @@ class result(simulation_element):
         
     def plot(self, showfig = True):
         """
-        plots the result
+        plots a histogram of the results .s attribute
 
         Returns
         -------
@@ -417,12 +390,12 @@ class result(simulation_element):
             file = 'par_' + self.name + '.png'
             fig.savefig(Path(self.savedir) / 'parameters' / file, bbox_inches = 'tight', dpi = 250)
         
-        return #fig
+        return 
     
     
     def compile_summary(self):
         """
-        compiles a summary table conatining a statistical description of the result.
+        compiles a summary table containing a statistical description of the result.
 
         Returns
         -------
@@ -461,7 +434,7 @@ class Simulation:
         nmc: int
             number of realisations
         safedir: Path to where plots are stored. Leave blank if 
-        safeplots: If True, all generated plots are saved in savedir
+        savefigs: If True, all generated plots are saved in savedir
         figsize: widthxlength in inches (applies to most figures)
 
         Returns
@@ -535,6 +508,10 @@ class Simulation:
         
             
     def __create_savedirs(self):
+        '''
+        Creates some directories within savedir, where plots can later be stored.
+
+        '''
         dirs = ['parameters', 'results', 'qc and sensitivity']
         
         for diri in dirs:
@@ -542,12 +519,6 @@ class Simulation:
             if not os.path.isdir(path):
                 os.makedirs(path)
         
-        
-    def set_savedir(self, savedir):
-        self.settings['savedir'] = Path(savedir)
-        self.__create_savedirs()
-        
-        return
     
     #properties
     @property
@@ -568,12 +539,12 @@ class Simulation:
     
     def add(self, simulation_element):
         '''
-        
+        adds a simulation element (parameter or result) to the simulation.
 
         Parameters
         ----------
-        simulation_element : TYPE
-            DESCRIPTION.
+        simulation_element : simulation_element
+            element to add.
 
         Returns
         -------
@@ -601,8 +572,8 @@ class Simulation:
 
         Parameters
         ----------
-        remove_element : TYPE
-            DESCRIPTION.
+        remove_element : simulation_element
+            element to remove.
 
         Returns
         -------
@@ -623,12 +594,12 @@ class Simulation:
         
     def __validate_simulation_element(self, new_element):
         '''
-        validates a new simulation element before added / altered.
+        validates a new simulation element before added / altered. If the validation failes, an error is raised.
 
         Parameters
         ----------
-        simulation_element : TYPE
-            DESCRIPTION.
+        simulation_element : simulation_element
+            element to add.
 
         Returns
         -------
@@ -647,30 +618,6 @@ class Simulation:
         if new_element.name in self.parameter_names + self.result_names:
             raise ValueError('Element of that name already present in simulation.')
             
-    # def addParameter(self, param):
-    #     """
-    #     add a parameter to the simulation.
-
-    #     Parameters
-    #     ----------
-    #     param : mcoo.Param
-    #         Dthe parameter
-
-    #     Returns
-    #     -------
-    #     None
-
-    #     """
-    #     #check if param is an mcoo.Param object
-    #     if not isinstance(param, Param):
-    #         raise ValueError('Parameter is not an mcoo.Param object')
-        
-    #     #check if already exists
-    #     if param.name in self.result_names + self.parameter_names:
-    #         raise ValueError('Element of that name already present')
-        
-    #     self.__parameters.append(param)
-        
         
         
     def realise_parameter_sets(self, overwrite_existing = False):
@@ -695,38 +642,6 @@ class Simulation:
             s = param.realise(self.settings['nmc'], overwrite_existing = overwrite_existing)
                 
         
-                
-    # def addResult(self, result):
-    #     """
-    #     adds a result to the simulation.
-
-    #     Parameters
-    #     ----------
-    #     name : string
-    #         name of the result
-    #     results : array of numbers
-    #         array of results. Length of vector must equal lenght of parameters.
-            
-    #     Returns
-    #     -------
-    #     None.
-    #     """
-        
-    #     if not isinstance(result, Result):
-    #         raise ValueError('Result is not an mcoo.Param object')
-            
-    #     #check if already exists
-    #     if result.name in np.hstack([self.parameter_names, self.result_names]):
-    #         raise ValueError('Element of that name already present')
-            
-    #     if not len(result.s) == self.settings['nmc']:
-    #         raise Exception('Length of result does not match simulation number of cases')
-            
-    #     self.__results.append(result)
-        
-    #     #TODO: list result_namesx
-        
-        
     def __summary(self):
         """
         Statistical description of all simulation parameters and results
@@ -738,9 +653,6 @@ class Simulation:
         """
         #compose dataframe
         cols =  ['name', 'type', 'unit', 'mean', 'std', 'min', 'max', 'P90', 'P50', 'P10']
-        # index = [param.name for param in self.parameters] + [result.name for result in self.results]
-        # sets = InputParamVal + ResultVal
-        # types = ['parameter' if seti[0] in [par[0] for par in InputParamVal] else 'result' for seti in sets]
         s = pd.DataFrame(columns = cols)
         s.set_index('name', inplace = True)
 
@@ -798,8 +710,6 @@ class Simulation:
         ----------
         plot : bool, optional
             show a plot of the evolution of all parameter means
-        text : bool, optional
-            describe the convergence of all parameters in text
 
         Returns
         -------
@@ -850,53 +760,53 @@ class Simulation:
                     file = 'parameter convergence.png'
                     fig.savefig(Path(self.settings['savedir']) / 'qc and sensitivity' / file, bbox_inches = 'tight', dpi = 250)
                 
-    def sensitivity(self, pairplot = True, tornado_ciom = True):
-        """
+    # def sensitivity(self, pairplot = True, tornado_ciom = True):
+    #     """
         
 
-        Parameters
-        ----------
-        pairplot : boolean, optional
-            plot a pairplot of all parameter / result combination. The default is True.
-        tornado_ciom : boolean, optional
-            plot a tornade diagram based on change in output mean correlation. The default is True.
+    #     Parameters
+    #     ----------
+    #     pairplot : boolean, optional
+    #         plot a pairplot of all parameter / result combination. The default is True.
+    #     tornado_ciom : boolean, optional
+    #         plot a tornade diagram based on change in output mean correlation. The default is True.
 
-        Returns
-        -------
-        Two pandas.DataFrames with preconfigured display style
-        separmansr: pd.DataFrme containing Spearman's correlation coefficient between parameters and results.
-        pearsonr:pd.DataFrme containing Pearson's correlation coefficient between parameters and results.
+    #     Returns
+    #     -------
+    #     Two pandas.DataFrames with preconfigured display style
+    #     separmansr: pd.DataFrme containing Spearman's correlation coefficient between parameters and results.
+    #     pearsonr:pd.DataFrme containing Pearson's correlation coefficient between parameters and results.
 
-        """
+    #     """
 
-        #get R² and linear fit parameters between all parameters and results
-        self.pearsonr, self.spearmansr, self.coeff1, self.coeff2= self._correlate_r()
+    #     #get R² and linear fit parameters between all parameters and results
+    #     self.pearsonr, self.spearmansr, self.coeff1, self.coeff2= self._correlate_r()
         
-        #get change in output mean P10 and P90 matrixes
-        self.ciom_p10, self.ciom_p90 = self._corelate_ciom()
+    #     #get change in output mean P10 and P90 matrixes
+    #     self.ciom_p10, self.ciom_p90 = self._corelate_ciom()
         
-        #Plot a Pairplot
-        if pairplot:
-             self._plot_pairplot()
+    #     #Plot a Pairplot
+    #     if pairplot:
+    #          self._plot_pairplot()
              
-        if tornado_ciom:
-              self._plotTornado_ciom()
+    #     if tornado_ciom:
+    #           self._plotTornado_ciom()
         
-        #adjust display style and return pd.DataFrames for correlation coefficients
-        #pandas display options
-        pd.options.display.precision = 2
-        cm = sns.color_palette("vlag", as_cmap=True)
+    #     #adjust display style and return pd.DataFrames for correlation coefficients
+    #     #pandas display options
+    #     pd.options.display.precision = 2
+    #     cm = sns.color_palette("vlag", as_cmap=True)
         
-        self.pearsonr.style.background_gradient(cmap=cm) 
-        self.spearmansr.style.background_gradient(cmap=cm) 
+    #     self.pearsonr.style.background_gradient(cmap=cm) 
+    #     self.spearmansr.style.background_gradient(cmap=cm) 
         
         
-        return self.spearmansr, self.pearsonr
+    #     return self.spearmansr, self.pearsonr
     
     
     def correlate(self):
          """
-         correlates every parameter to every result
+         correlates every parameter to every result (using spearman and pearson correlation)
 
          Returns
          -------
@@ -904,7 +814,6 @@ class Simulation:
          spearmansr : pd.DataFrame (rows:parameters, cols: results, values: spearmans rho)
          coeff1 : pd.DataFrame (rows:parameters, cols: results, values: intercept)
          coeff2 : pd.DataFrame (rows:parameters, cols: results, values: slope)
-
 
          """
          r2 = []
@@ -1175,7 +1084,7 @@ class Simulation:
           
     def show_parameters(self, mode = 'sdh', showtable = True, showfig = True):
         """
-        creates a plot for each parameter.
+        shows a plot and a summary table for each parameter
 
         Parameters
         ----------
@@ -1206,7 +1115,7 @@ class Simulation:
             
     def show_results(self, showtable = True, showfig = True):
         """
-        creates a plot for each result
+        shows a plot and a summary table for each result
         
         Parameters
         --------
@@ -1229,11 +1138,7 @@ class Simulation:
         
     def savesim(self):
         """
-        
-
-        Returns
-        -------
-        None.
+        Saves the simulation in a pickle on the savedir
 
         """
         file = self.settings['savedir'] / (self.name  + '.pickle')
