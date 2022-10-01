@@ -991,10 +991,16 @@ class Simulation:
             file = 'stairplot' + '.png'
             fig.savefig(Path(self.settings['savedir']) / 'qc and sensitivity' / file, bbox_inches = 'tight', dpi = 250)
             
-    def plot_tornado(self):
+    def plot_tornado(self, limit_parameters = True):
         '''
         creates a tornado plot for each result, showing sensitivity on all parameters.
         Sensitivities are computed as change in output mean.
+        
+        Parameters
+        ----------
+        limit_parameters : bool, optional
+            only show parameters in tornado plot whose ciom is larger than the standard error of the results mean
+        
         '''
         ciom_p10, ciom_p90 = self.compute_ciom()
         
@@ -1009,30 +1015,38 @@ class Simulation:
             
             
             ax.set_title(f"Result: {result.name} [{result.unit}]")
-
+            #compute standard error of result 
+            std = np.std(result.s)
+            ste = std / np.sqrt(self.settings['nmc'])
+            
             #sorting order descending from span p90 - p10
             sorting_order = (span
-                     .loc[span.index == result.name]
+                     .loc[(span.index == result.name)] 
                      .T
-                     .assign(old_index = np.arange(span.shape[1]))
+                     .query('`{}` > {}*{}'.format(result.name, 2 if limit_parameters else 0, ste)))
+            
+            sorting_order = (sorting_order
+                     .assign(old_index = np.arange(len(sorting_order)))
                      .sort_values(by = result.name, ascending = False)
                      .reset_index()
-                     .sort_values(by = 'old_index', ascending = True)
-                     .index
-                     .to_numpy())
+                     .sort_values(by = 'old_index', ascending = True))
+            
+            sorting_order_index = sorting_order.index.to_numpy()
             
             #high parameter values
             ciom_p10t = (ciom_p10
                 .loc[ciom_p10.index == result.name]
+                .loc[:, sorting_order.iloc[:,0]]
                 .T
-                .assign(sorting_order = sorting_order)
+                .assign(sorting_order = sorting_order_index)
                 .sort_values(by = 'sorting_order'))
             
             #low parameter values            
             ciom_p90t = (ciom_p90
                 .loc[ciom_p90.index == result.name]
+                .loc[:, sorting_order.iloc[:,0]]
                 .T
-                .assign(sorting_order = sorting_order)
+                .assign(sorting_order = sorting_order_index)
                 .sort_values(by = 'sorting_order'))
 
 
@@ -1062,9 +1076,7 @@ class Simulation:
             #plot ciom_p90
             ax.barh(y = np.flip(np.arange(0,stop = len(ciom_p90t))), width = abs(ciom_p90t) , left =  left,  tick_label = names, alpha = 0.7, color = 'deepskyblue', label = 'low')     
             
-            #compute and plot standard error of result in both directions
-            std = np.std(result.s)
-            ste = std / np.sqrt(self.settings['nmc'])
+            #plot standard error of result in both directions
             ax.axvspan(base_value - ste, base_value + ste, color = 'white', alpha = 0.5, label = 'standard error')
             
             #plot baseline
