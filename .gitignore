@@ -6,6 +6,7 @@
 !.ipynb
 !.txt
 !.html
+!.ipynb-checkpoint
 
 # ...even if they are in subdirectories
 !*/
